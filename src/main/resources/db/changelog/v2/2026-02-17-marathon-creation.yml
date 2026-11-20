@@ -1,0 +1,62 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-02-17-add-input-context-to-users
+      author: claude
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          columnExists:
+            tableName: users
+            schemaName: public
+            columnName: input_context
+      changes:
+        - addColumn:
+            tableName: users
+            schemaName: public
+            columns:
+              - column:
+                  name: input_context
+                  type: TEXT
+
+  - changeSet:
+      id: 2026-02-17-fix-input-context-type
+      author: claude
+      changes:
+        - sql:
+            sql: >
+              ALTER TABLE public.users
+              ALTER COLUMN input_context TYPE TEXT
+              USING input_context::TEXT;
+
+  - changeSet:
+      id: 2026-02-17-reset-marathon-sequence
+      author: claude
+      changes:
+        - sql:
+            sql: >
+              SELECT setval(
+                pg_get_serial_sequence('marathon', 'id'),
+                COALESCE((SELECT MAX(id) FROM marathon), 0) + 1,
+                false
+              );
+
+  - changeSet:
+      id: 2026-02-17-add-marathon-creation-fields
+      author: claude
+      changes:
+        - addColumn:
+            tableName: marathon
+            columns:
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  defaultValue: 'ACTIVE'
+              - column:
+                  name: creator_id
+                  type: BIGINT
+              - column:
+                  name: bind_code
+                  type: VARCHAR(10)
+              - column:
+                  name: bind_code_expiry
+                  type: TIMESTAMP

@@ -1,5 +1,6 @@
 # Telegram
-TELEGRAM_BOT_NAME:
+TELEGRAM_BOT_NAME:       # отображаемое имя бота
+TELEGRAM_BOT_USERNAME:   # @username бота (без @, только латиница, используется в инвайт-ссылках)
 TELEGRAM_BOT_TOKEN:
 
 # Database
@@ -12,3 +13,9 @@ DB_PASSWORD:
 # YandexGPT
 YANDEX_API_KEY:
 YANDEX_FOLDER_ID:
+
+# Superadmin
+SUPERADMIN_TELEGRAM_ID: 761245887
+
+# Feature rollout
+GAMIFICATION_MANAGER_ENABLE_AVAILABLE: false

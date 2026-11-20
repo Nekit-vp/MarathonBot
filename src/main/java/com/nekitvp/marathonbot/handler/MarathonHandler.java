@@ -1,6 +1,7 @@
 package com.nekitvp.marathonbot.handler;
 
 import com.nekitvp.marathonbot.enumBot.StateBot;
+import com.nekitvp.marathonbot.gamification.service.GamificationViewService;
 import com.nekitvp.marathonbot.model.UserEntity;
 import com.nekitvp.marathonbot.service.HistoryService;
 import com.nekitvp.marathonbot.service.MarathonService;
@@ -10,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -25,10 +27,12 @@ import static com.nekitvp.marathonbot.util.TelegramUtil.createButtonByState;
 public class MarathonHandler extends AbstractHandler {
 
     private static final DateTimeFormatter DATE_TIME_FMT = DateTimeFormatter.ofPattern("dd.MM.yyyy - HH:mm");
+    private static final DateTimeFormatter SHORT_DATE_FMT = DateTimeFormatter.ofPattern("dd.MM");
 
     private final UserService userService;
     private final HistoryService historyService;
     private final MarathonService marathonService;
+    private final GamificationViewService gamificationViewService;
 
     @Override
     public StateBot getCurrentState() {
@@ -42,7 +46,13 @@ public class MarathonHandler extends AbstractHandler {
         // проверка на существование марафона
         if (!userService.userHasAnyMarathon(message.getChatId())) {
             userService.updateUserState(message.getChatId(), START);
-            return getDefaultMessage(message, NOT_FOUND_MARATHON, getKeyboardDefault(START));
+            var noMarathonKeyboard = new InlineKeyboardBuilder()
+                    .row(createButtonByState(CREATE_MARATHON_INFO))
+                    .row(createButtonByState(START))
+                    .build();
+            return getDefaultMessage(message,
+                    "Ты пока не состоишь в марафоне! 🏃\n\nСоздай свой или попроси организатора поделиться инвайт-ссылкой.",
+                    noMarathonKeyboard);
         }
 
         var user = userService.getUser(message.getChatId());
@@ -62,6 +72,8 @@ public class MarathonHandler extends AbstractHandler {
         boolean restDayYesterday = isRestDay(marathon, todayDay.minusDays(1));
         boolean isBeforeStart = todayTime.isBefore(marathon.getDateStart());
         boolean isAfterEnd = todayTime.isAfter(marathon.getDateEnd());
+        boolean takenDayOffThisWeek = Boolean.TRUE.equals(marathon.getWeeklyDayOffEnabled())
+                && historyService.hasTakenDayOffThisWeek(user.getTelegramId());
 
         if (Objects.equals(failCount.getFirst(), failCount.getSecond())) {
             failCountString = failCount.getFirst().toString();
@@ -76,6 +88,9 @@ public class MarathonHandler extends AbstractHandler {
 
         var keyboard = new InlineKeyboardBuilder()
                 .row(createButtonByState(GOAL), createButtonByState(FAIL_GOAL));
+        if (gamificationViewService.hasGameState(marathon.getId())) {
+            keyboard.row(createButtonByState(REWARDS_MAIN));
+        }
 
         String statusText;
 
@@ -95,13 +110,20 @@ public class MarathonHandler extends AbstractHandler {
                 keyboard.row(createButtonByState(REPORT_YESTERDAY));
             }
 
-            statusText = getStatusReport(user, existsReportToday, existsReportYesterday, restDayYesterday, todayDay);
+            if (Boolean.TRUE.equals(marathon.getWeeklyDayOffEnabled())
+                    && !existsReportToday
+                    && !takenDayOffThisWeek) {
+                keyboard.row(createButtonByState(TAKE_DAY_OFF));
+            }
+
+            statusText = getStatusReport(user, existsReportToday, existsReportYesterday, restDayYesterday, todayDay,
+                    marathon.getWeeklyDayOffEnabled(), takenDayOffThisWeek, todayDay);
         }
 
         keyboard.row(createButtonByState(START));
 
         return getDefaultMessage(message, keyboard.build(),
-                user.getTelegramFirstName(),
+                user.getEffectiveName(),
                 marathon.getName(),
                 marathon.getDateStart().format(DATE_TIME_FMT),
                 marathon.getDateEnd().format(DATE_TIME_FMT),
@@ -113,20 +135,31 @@ public class MarathonHandler extends AbstractHandler {
     }
 
     private String getStatusReport(UserEntity user, boolean existsReportToday,
-                                   boolean existsReportYesterday, boolean restDayYesterday, LocalDate today) {
+                                   boolean existsReportYesterday, boolean restDayYesterday, LocalDate today,
+                                   Boolean weeklyDayOffEnabled, boolean takenDayOff, LocalDate todayDate) {
         var marathon = user.getMarathon();
 
         String todayStatus = "Отчет за сегодня: " + (existsReportToday ? "🟢" : "🔴");
+        String result;
         if (today.equals(marathon.getDateStart().toLocalDate()) || restDayYesterday) {
-            return todayStatus;
+            result = todayStatus;
+        } else {
+            String yesterdayStatus = "║ Отчет за вчера: " + (existsReportYesterday ? "🟢" : "🔴");
+            result = todayStatus + "\n" + yesterdayStatus;
         }
 
-        String yesterdayStatus = "║ Отчет за вчера: " + (existsReportYesterday ? "🟢" : "🔴");
-        return todayStatus + "\n" + yesterdayStatus;
+        if (Boolean.TRUE.equals(weeklyDayOffEnabled)) {
+            LocalDate monday = todayDate.with(DayOfWeek.MONDAY);
+            LocalDate sunday = todayDate.with(DayOfWeek.SUNDAY);
+            String weekRange = monday.format(SHORT_DATE_FMT) + " — " + sunday.format(SHORT_DATE_FMT);
+            String dayOffStatus = takenDayOff ? "✅ Взят" : "доступен";
+            result += "\n🌴 Выходной (" + weekRange + "): " + dayOffStatus;
+        }
+
+        return result;
     }
 
     private long calculateCash(long fails, int freeCount, int penaltyAmount) {
         return fails > freeCount ? (fails - freeCount) * penaltyAmount : 0L;
     }
 }
-

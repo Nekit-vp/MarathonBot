@@ -54,7 +54,7 @@ public class DeleteReportHandler extends AbstractHandler {
         historyService.deleteReport(message.getChatId());
 
         var groupId = user.getMarathon().getGroupId();
-        letterSender.publishEscape(groupId, MessageTemplate.REPORT_CANCELLED, user.getTelegramFirstName());
+        letterSender.publishEscape(groupId, MessageTemplate.REPORT_CANCELLED, user.getEffectiveName());
 
         userService.updateUserState(message.getChatId(), StateBot.START);
         return getDefaultMessage(message, getKeyboardDefault(StateBot.START));

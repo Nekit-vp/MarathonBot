@@ -1,0 +1,577 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-08-01-add-gamification-flags
+      author: codex
+      changes:
+        - addColumn:
+            tableName: marathon
+            schemaName: public
+            columns:
+              - column:
+                  name: gamification_enabled
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: gamification_rule_version
+                  type: INTEGER
+        - addColumn:
+            tableName: goal
+            schemaName: public
+            columns:
+              - column:
+                  name: archived_at
+                  type: TIMESTAMP
+        - addColumn:
+            tableName: history
+            schemaName: public
+            columns:
+              - column:
+                  name: report_submitted
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: day_off
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: goal
+            schemaName: public
+            indexName: idx_goal_active_user_marathon_position
+            columns:
+              - column:
+                  name: user_id
+              - column:
+                  name: marathon_id
+              - column:
+                  name: position
+
+  - changeSet:
+      id: 2026-08-01-create-reward-award
+      author: codex
+      changes:
+        - createTable:
+            tableName: reward_award
+            schemaName: public
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_reward_award
+                    nullable: false
+              - column:
+                  name: marathon_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: reward_code
+                  type: VARCHAR(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: reward_kind
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: occurrence_key
+                  type: VARCHAR(160)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: rule_version
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+              - column:
+                  name: goal_id_snapshot
+                  type: BIGINT
+              - column:
+                  name: goal_name_snapshot
+                  type: VARCHAR(255)
+              - column:
+                  name: awarded_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: earned_on
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: notification_mode
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: shown_at
+                  type: TIMESTAMP
+        - addUniqueConstraint:
+            tableName: reward_award
+            schemaName: public
+            columnNames: marathon_id, user_id, reward_code, occurrence_key, rule_version
+            constraintName: uk_reward_award_occurrence
+        - addForeignKeyConstraint:
+            baseTableName: reward_award
+            baseColumnNames: marathon_id
+            referencedTableName: marathon
+            referencedColumnNames: id
+            constraintName: fk_reward_award_marathon
+        - addForeignKeyConstraint:
+            baseTableName: reward_award
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: telegram_id
+            constraintName: fk_reward_award_user
+        - createIndex:
+            tableName: reward_award
+            schemaName: public
+            indexName: idx_reward_award_cabinet
+            columns:
+              - column:
+                  name: marathon_id
+              - column:
+                  name: user_id
+              - column:
+                  name: awarded_at
+                  descending: true
+        - createIndex:
+            tableName: reward_award
+            schemaName: public
+            indexName: idx_reward_award_pending
+            columns:
+              - column:
+                  name: marathon_id
+              - column:
+                  name: user_id
+              - column:
+                  name: notification_mode
+              - column:
+                  name: shown_at
+        - sql:
+            sql: >
+              ALTER TABLE public.reward_award
+              ADD CONSTRAINT ck_reward_award_kind
+              CHECK (reward_kind IN ('MEDAL', 'ACHIEVEMENT', 'TEAM')),
+              ADD CONSTRAINT ck_reward_award_notification_mode
+              CHECK (notification_mode IN ('IMMEDIATE', 'PENDING', 'BACKFILL'));
+
+  - changeSet:
+      id: 2026-08-01-create-expedition-contribution
+      author: codex
+      changes:
+        - createTable:
+            tableName: expedition_contribution
+            schemaName: public
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_expedition_contribution
+                    nullable: false
+              - column:
+                  name: marathon_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: activity_date
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: rule_version
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+              - column:
+                  name: report_on_time
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: personal_day_off
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: personal_goal_count
+                  type: INTEGER
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: completed_goal_count
+                  type: INTEGER
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: calculated_energy
+                  type: INTEGER
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: credited_energy
+                  type: INTEGER
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: expedition_contribution
+            schemaName: public
+            columnNames: marathon_id, user_id, activity_date, rule_version
+            constraintName: uk_expedition_contribution_day
+        - addForeignKeyConstraint:
+            baseTableName: expedition_contribution
+            baseColumnNames: marathon_id
+            referencedTableName: marathon
+            referencedColumnNames: id
+            constraintName: fk_expedition_contribution_marathon
+        - addForeignKeyConstraint:
+            baseTableName: expedition_contribution
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: telegram_id
+            constraintName: fk_expedition_contribution_user
+        - createIndex:
+            tableName: expedition_contribution
+            schemaName: public
+            indexName: idx_expedition_contribution_day
+            columns:
+              - column:
+                  name: marathon_id
+              - column:
+                  name: activity_date
+              - column:
+                  name: rule_version
+        - sql:
+            sql: >
+              ALTER TABLE public.expedition_contribution
+              ADD CONSTRAINT ck_expedition_contribution_counts
+              CHECK (personal_goal_count >= 0
+                AND completed_goal_count >= 0
+                AND completed_goal_count <= personal_goal_count),
+              ADD CONSTRAINT ck_expedition_contribution_energy
+              CHECK (calculated_energy BETWEEN 0 AND 10
+                AND credited_energy BETWEEN 0 AND 10);
+
+  - changeSet:
+      id: 2026-08-01-create-expedition-state
+      author: codex
+      changes:
+        - createTable:
+            tableName: expedition_state
+            schemaName: public
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_expedition_state
+                    nullable: false
+              - column:
+                  name: marathon_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: rule_version
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+              - column:
+                  name: activated_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: route_start_date
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: route_end_date
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: rest_on_saturday
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: rest_on_sunday
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: planned_active_days
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+              - column:
+                  name: distance
+                  type: NUMERIC(7,4)
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: last_announced_checkpoint
+                  type: INTEGER
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: last_reconciled_date
+                  type: DATE
+              - column:
+                  name: last_digest_week
+                  type: VARCHAR(10)
+              - column:
+                  name: launch_announced_at
+                  type: TIMESTAMP
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: expedition_state
+            schemaName: public
+            columnNames: marathon_id, rule_version
+            constraintName: uk_expedition_state_rule
+        - addForeignKeyConstraint:
+            baseTableName: expedition_state
+            baseColumnNames: marathon_id
+            referencedTableName: marathon
+            referencedColumnNames: id
+            constraintName: fk_expedition_state_marathon
+        - sql:
+            sql: >
+              ALTER TABLE public.expedition_state
+              ADD CONSTRAINT ck_expedition_state_dates
+              CHECK (route_end_date >= route_start_date),
+              ADD CONSTRAINT ck_expedition_state_days
+              CHECK (planned_active_days > 0),
+              ADD CONSTRAINT ck_expedition_state_distance
+              CHECK (distance BETWEEN 0 AND 100),
+              ADD CONSTRAINT ck_expedition_state_checkpoint
+              CHECK (last_announced_checkpoint IN (0, 25, 50, 75, 100));
+
+  - changeSet:
+      id: 2026-08-01-create-marathon-participation
+      author: codex
+      changes:
+        - createTable:
+            tableName: marathon_participation
+            schemaName: public
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_marathon_participation
+                    nullable: false
+              - column:
+                  name: marathon_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: joined_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: left_at
+                  type: TIMESTAMP
+        - addForeignKeyConstraint:
+            baseTableName: marathon_participation
+            baseColumnNames: marathon_id
+            referencedTableName: marathon
+            referencedColumnNames: id
+            constraintName: fk_marathon_participation_marathon
+        - addForeignKeyConstraint:
+            baseTableName: marathon_participation
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: telegram_id
+            constraintName: fk_marathon_participation_user
+        - createIndex:
+            tableName: marathon_participation
+            schemaName: public
+            indexName: idx_marathon_participation_roster
+            columns:
+              - column:
+                  name: marathon_id
+              - column:
+                  name: joined_at
+              - column:
+                  name: left_at
+        - createIndex:
+            tableName: marathon_participation
+            schemaName: public
+            indexName: idx_marathon_participation_user
+            columns:
+              - column:
+                  name: user_id
+              - column:
+                  name: marathon_id
+        - sql:
+            sql: >
+              CREATE UNIQUE INDEX uk_marathon_participation_open
+              ON public.marathon_participation (marathon_id, user_id)
+              WHERE left_at IS NULL;
+        - sql:
+            sql: >
+              ALTER TABLE public.marathon_participation
+              ADD CONSTRAINT ck_marathon_participation_interval
+              CHECK (left_at IS NULL OR left_at >= joined_at);
+
+  - changeSet:
+      id: 2026-08-01-create-gamification-notification
+      author: codex
+      changes:
+        - createTable:
+            tableName: gamification_notification
+            schemaName: public
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_gamification_notification
+                    nullable: false
+              - column:
+                  name: marathon_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: notification_type
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: occurrence_key
+                  type: VARCHAR(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: chat_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: feedback_chat_id
+                  type: BIGINT
+              - column:
+                  name: payload
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: attempt_count
+                  type: INTEGER
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: next_attempt_at
+                  type: TIMESTAMP
+              - column:
+                  name: last_attempt_at
+                  type: TIMESTAMP
+              - column:
+                  name: sent_at
+                  type: TIMESTAMP
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: last_error
+                  type: VARCHAR(1000)
+        - addUniqueConstraint:
+            tableName: gamification_notification
+            schemaName: public
+            columnNames: marathon_id, notification_type, occurrence_key
+            constraintName: uk_gamification_notification_key
+        - addForeignKeyConstraint:
+            baseTableName: gamification_notification
+            baseColumnNames: marathon_id
+            referencedTableName: marathon
+            referencedColumnNames: id
+            constraintName: fk_gamification_notification_marathon
+        - createIndex:
+            tableName: gamification_notification
+            schemaName: public
+            indexName: idx_gamification_notification_dispatch
+            columns:
+              - column:
+                  name: status
+              - column:
+                  name: next_attempt_at
+              - column:
+                  name: id
+        - sql:
+            sql: >
+              ALTER TABLE public.gamification_notification
+              ADD CONSTRAINT ck_gamification_notification_type
+              CHECK (notification_type IN ('LAUNCH', 'DAILY_HIGHLIGHT')),
+              ADD CONSTRAINT ck_gamification_notification_status
+              CHECK (status IN ('PENDING', 'SENDING', 'SENT', 'FAILED')),
+              ADD CONSTRAINT ck_gamification_notification_attempts
+              CHECK (attempt_count >= 0);

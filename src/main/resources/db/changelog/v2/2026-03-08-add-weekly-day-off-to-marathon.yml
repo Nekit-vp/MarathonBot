@@ -1,0 +1,20 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-03-08-add-weekly-day-off-to-marathon
+      author: claude
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          columnExists:
+            tableName: marathon
+            schemaName: public
+            columnName: weekly_day_off_enabled
+      changes:
+        - addColumn:
+            tableName: marathon
+            schemaName: public
+            columns:
+              - column:
+                  name: weekly_day_off_enabled
+                  type: BOOLEAN
+                  defaultValueBoolean: false

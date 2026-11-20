@@ -1,6 +1,7 @@
 package com.nekitvp.marathonbot.service;
 
 
+import com.nekitvp.marathonbot.gamification.service.HistoryMutationRecalculationEvent;
 import com.nekitvp.marathonbot.model.GoalEntity;
 import com.nekitvp.marathonbot.model.HistoryEntity;
 import com.nekitvp.marathonbot.model.MarathonEntity;
@@ -8,12 +9,15 @@ import com.nekitvp.marathonbot.model.UserEntity;
 import com.nekitvp.marathonbot.repository.HistoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -31,6 +35,7 @@ public class HistoryService {
     private final GoalService goalService;
     private final UserService userService;
     private final LetterSender letterSender;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Заполнение отчета за сегодня
@@ -54,6 +59,7 @@ public class HistoryService {
             }
             result.add(Pair.of(goal.getName(), completed));
             HistoryEntity history = createHistoryGoal(goal, completed, currentTime);
+            history.setReportSubmitted(true);
             historyRepository.save(history);
         }
         return result;
@@ -81,6 +87,7 @@ public class HistoryService {
             boolean completed = optionIds.contains(goal.getPosition() - 1);
             result.add(Pair.of(goal.getName(), completed));
             history.setDone(completed);
+            history.setReportSubmitted(true);
         }
         historyRepository.saveAll(histories);
         return result;
@@ -157,6 +164,7 @@ public class HistoryService {
         var today = LocalDate.now();
 
         List<HistoryEntity> historiesToSave = new ArrayList<>();
+        List<HistoryMutationRecalculationEvent> recalculations = new ArrayList<>();
 
         userService.getUsersWhoHasActiveMarathon()
                 .forEach(user -> {
@@ -188,10 +196,13 @@ public class HistoryService {
                                 .orElseThrow(() -> new RuntimeException("Goal Report not found"));
                         var history = createHistoryGoal(goalReport, false, timeReport);
                         historiesToSave.add(history);
+                        recalculations.add(HistoryMutationRecalculationEvent.history(
+                                marathon.getId(), user.getTelegramId(), timeReport.toLocalDate(), false));
                         letterSender.sendBadReport(user);
                     }
                 });
         historyRepository.saveAll(historiesToSave);
+        recalculations.forEach(eventPublisher::publishEvent);
     }
 
     /**
@@ -218,7 +229,7 @@ public class HistoryService {
 
         historiesByUser.forEach((telegramId, histories) -> {
             UserEntity user = userService.getUser(telegramId);
-            MarathonEntity marathon = user.getMarathon();
+            MarathonEntity marathon = histories.getFirst().getGoal().getMarathon();
 
             LocalDate start = marathon.getDateStart().toLocalDate();
             LocalDate end = marathon.getDateEnd().toLocalDate();
@@ -233,6 +244,8 @@ public class HistoryService {
 
             histories.forEach(h -> h.setDone(false));
             historyRepository.saveAll(histories);
+            eventPublisher.publishEvent(HistoryMutationRecalculationEvent.history(
+                    marathon.getId(), telegramId, dayBeforeYesterday, false));
 
             histories.sort(Comparator.comparingInt(history -> history.getGoal().getPosition() == 0 ?
                     Integer.MAX_VALUE : history.getGoal().getPosition()));
@@ -243,18 +256,20 @@ public class HistoryService {
 
 
     @Transactional
-    public void createFinalDayReports(MarathonEntity marathon) {
-        Pair<LocalDateTime, LocalDateTime> yesterdayRange = getYesterdayRange();
-        LocalDateTime timeReport = yesterdayRange.getFirst().plusHours(12);
+    public void createFinalDayReports(MarathonEntity marathon, LocalDate finalDate) {
+        LocalDateTime startOfFinalDay = finalDate.atStartOfDay();
+        LocalDateTime endOfFinalDay = finalDate.atTime(LocalTime.MAX);
+        LocalDateTime timeReport = finalDate.atTime(12, 0);
         List<HistoryEntity> historiesToSave = new ArrayList<>();
+        List<HistoryMutationRecalculationEvent> recalculations = new ArrayList<>();
 
         List<UserEntity> users = userService.getUsersByMarathonId(marathon.getId());
 
         for (UserEntity user : users) {
             boolean reportExists = historyRepository.existsByTelegramIdAndCreatedAtBetween(
                     user.getTelegramId(),
-                    yesterdayRange.getFirst(),
-                    yesterdayRange.getSecond()
+                    startOfFinalDay,
+                    endOfFinalDay
             );
 
             if (!reportExists) {
@@ -264,10 +279,13 @@ public class HistoryService {
                     var history = createHistoryGoal(goal, false, timeReport);
                     historiesToSave.add(history);
                 });
+                recalculations.add(HistoryMutationRecalculationEvent.history(
+                        marathon.getId(), user.getTelegramId(), finalDate, true));
                 letterSender.sendBadReportFinal(user, goals);
             }
         }
         historyRepository.saveAll(historiesToSave);
+        recalculations.forEach(eventPublisher::publishEvent);
     }
 
 
@@ -303,6 +321,86 @@ public class HistoryService {
 
 
     /**
+     * История участника за конкретную дату
+     */
+    @Transactional(readOnly = true)
+    public List<HistoryEntity> getHistoryForDate(Long userId, LocalDate date) {
+        LocalDateTime from = date.atStartOfDay();
+        LocalDateTime to = date.atTime(LocalTime.MAX);
+        return historyRepository.findByGoalUserIdAndCreatedAtBetweenOrderByCreatedAtDesc(userId, from, to);
+    }
+
+    /**
+     * Последние 14 дней истории участника
+     */
+    @Transactional(readOnly = true)
+    public List<HistoryEntity> getRecentHistory(Long userId) {
+        LocalDateTime from = LocalDate.now().minusDays(14).atStartOfDay();
+        return historyRepository.findByGoalUserIdAndCreatedAtBetweenOrderByCreatedAtDesc(userId, from, now());
+    }
+
+    /**
+     * Обновить статус записи истории (toggle done)
+     */
+    @Transactional
+    public void updateHistoryStatus(Long historyId, Boolean done) {
+        HistoryEntity history = historyRepository.findById(historyId)
+                .orElseThrow(() -> new RuntimeException("История не найдена: " + historyId));
+        history.setDone(done);
+        historyRepository.save(history);
+        eventPublisher.publishEvent(HistoryMutationRecalculationEvent.history(
+                history.getGoal().getMarathon().getId(),
+                history.getGoal().getUserId(),
+                history.getCreatedAt().toLocalDate(),
+                false));
+    }
+
+    /**
+     * Проверяет, брал ли пользователь выходной в текущей неделе (пн–вс).
+     * Выходной — день, когда создана ровно 1 запись, это цель position=0, и done=true.
+     */
+    public boolean hasTakenDayOffThisWeek(Long telegramId) {
+        LocalDate today = LocalDate.now();
+        LocalDate monday = today.with(DayOfWeek.MONDAY);
+        LocalDate sunday = today.with(DayOfWeek.SUNDAY);
+        LocalDateTime weekStart = monday.atStartOfDay();
+        LocalDateTime weekEnd = sunday.atTime(LocalTime.MAX);
+
+        List<HistoryEntity> histories = historyRepository.findByTelegramIdAndCreatedAtBetween(
+                telegramId, weekStart, weekEnd);
+
+        Map<LocalDate, List<HistoryEntity>> byDay = histories.stream()
+                .collect(Collectors.groupingBy(h -> h.getCreatedAt().toLocalDate()));
+
+        for (List<HistoryEntity> dayHistories : byDay.values()) {
+            if (dayHistories.size() == 1) {
+                HistoryEntity h = dayHistories.get(0);
+                if (h.getGoal().getPosition() == 0 && Boolean.TRUE.equals(h.getDone())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Оформляет выходной: создаёт единственную запись history для position=0 (done=true).
+     */
+    @Transactional
+    public void createDayOff(Long telegramId) {
+        List<GoalEntity> goals = goalService.getGoalByUser(telegramId);
+        GoalEntity reportGoal = goals.stream()
+                .filter(g -> g.getPosition() == 0)
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Report goal not found for user " + telegramId));
+        HistoryEntity history = createHistoryGoal(reportGoal, true, now());
+        history.setDayOff(true);
+        historyRepository.save(history);
+        eventPublisher.publishEvent(HistoryMutationRecalculationEvent.history(
+                reportGoal.getMarathon().getId(), telegramId, history.getCreatedAt().toLocalDate(), false));
+    }
+
+    /**
      * Удаление отчета
      */
     @Transactional
@@ -314,5 +412,11 @@ public class HistoryService {
                 todayRange.getSecond());
 
         historyRepository.deleteAll(histories);
+        histories.stream().findFirst().ifPresent(history -> eventPublisher.publishEvent(
+                HistoryMutationRecalculationEvent.history(
+                        history.getGoal().getMarathon().getId(),
+                        history.getGoal().getUserId(),
+                        history.getCreatedAt().toLocalDate(),
+                        false)));
     }
 }

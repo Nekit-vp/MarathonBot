@@ -1,0 +1,6 @@
+gamification_reward|Отличный шаг к вершине 🏔️
+gamification_reward|Коллекция растёт — так держать ✨
+gamification_reward|Ещё один сильный след на маршруте 👣
+gamification_expedition|Темп ровный — лагерь уже близко 🏕️
+gamification_expedition|Каждый отчёт двигает команду выше 🥾
+gamification_expedition|Держим связку — вершина становится ближе 🏔️

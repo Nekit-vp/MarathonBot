@@ -1,41 +1,37 @@
-version: '3.8'
-
 services:
-  marathon-prod:
-    image: nekitvp/marathon:7.2
-    restart: always
-    depends_on:
-      - marathonbot-db
-    expose:
-      - "8081"
-    networks:
-      - marathonbot-prod
-    env_file:
-      - .env
-    environment:
-      SPRING_PROFILES_ACTIVE: prod
-
-  marathonbot-db:
-    container_name: marathonbot-db
+  db:
     image: postgres:12-alpine
-    restart: always
-    volumes:
-      - pgdata-marathonbot:/var/lib/postgresql/data
-    expose:
-      - "5432"
-    ports:
-      - "9736:5432"
-    networks:
-      - marathonbot-prod
     environment:
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
-      TZ: 'Europe/Moscow'
-      PGTZ: 'Europe/Moscow'
-
-networks:
-  marathonbot-prod:
+      POSTGRES_DB: ${DB_NAME:-marathonbot}
+      POSTGRES_USER: ${DB_USERNAME:-marathonbot}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    volumes:
+      - marathon_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  bot:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-marathonbot}
+      DB_USERNAME: ${DB_USERNAME:-marathonbot}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      TELEGRAM_BOT_NAME: ${TELEGRAM_BOT_NAME:-MarathonBot}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:?Set TELEGRAM_BOT_USERNAME in .env}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?Set TELEGRAM_BOT_TOKEN in .env}
+      SUPERADMIN_TELEGRAM_ID: ${SUPERADMIN_TELEGRAM_ID:-0}
+      GAMIFICATION_MANAGER_ENABLE_AVAILABLE: ${GAMIFICATION_MANAGER_ENABLE_AVAILABLE:-true}
+      YANDEX_API_KEY: ${YANDEX_API_KEY:-}
+      YANDEX_FOLDER_ID: ${YANDEX_FOLDER_ID:-}
 
 volumes:
-  pgdata-marathonbot:
+  marathon_data:

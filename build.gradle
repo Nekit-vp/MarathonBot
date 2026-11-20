@@ -5,10 +5,12 @@ plugins {
 }
 
 group = 'com.nekitvp'
-version = '7'
+version = '7.14'
 
 java {
-    sourceCompatibility = '21'
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
 }
 
 configurations {
@@ -27,6 +29,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'org.liquibase:liquibase-core'
     compileOnly 'org.projectlombok:lombok'
+    compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
     // Spring Retry
     implementation 'org.springframework.retry:spring-retry'
     implementation 'org.springframework.boot:spring-boot-starter-aop'
@@ -34,8 +37,20 @@ dependencies {
     runtimeOnly 'org.postgresql:postgresql'
     annotationProcessor 'org.projectlombok:lombok'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:postgresql'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+// Локальные конфиги и файлы с секретами лежат в src/main/resources и закрыты .gitignore,
+// но без этого исключения Gradle кладёт их в jar, а Dockerfile — в публикуемый образ.
+tasks.named('processResources') {
+    exclude 'application-local.yml'
+    exclude 'application-local-o.yml'
+    exclude '**/*екреты*'
+    exclude '**/*ecret*'
 }

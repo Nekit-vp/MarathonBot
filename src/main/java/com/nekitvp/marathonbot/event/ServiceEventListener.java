@@ -15,6 +15,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import java.util.List;
 
 import static com.nekitvp.marathonbot.util.TelegramUtil.createButtonByState;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
 
 @Component
@@ -48,6 +49,14 @@ public class ServiceEventListener {
                     .keyboard(List.of(List.of(createButtonByState(event.getButton()))))
                     .build();
             send.setReplyMarkup(replyKeyboard);
+        } else if (event.getUrlButtonLabel() != null && event.getUrlButtonUrl() != null) {
+            var urlButton = InlineKeyboardButton.builder()
+                    .text(event.getUrlButtonLabel())
+                    .url(event.getUrlButtonUrl())
+                    .build();
+            send.setReplyMarkup(InlineKeyboardMarkup.builder()
+                    .keyboard(List.of(List.of(urlButton)))
+                    .build());
         }
 
         try {

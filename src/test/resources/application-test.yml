@@ -1,0 +1,7 @@
+bot:
+  name: test-marathon-bot
+  username: test-marathon-bot
+  token: test-token
+yandex:
+  api-key: test-api-key
+  folder-id: test-folder-id

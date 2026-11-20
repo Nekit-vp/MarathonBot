@@ -1,6 +1,7 @@
 package com.nekitvp.marathonbot.model;
 
 
+import com.nekitvp.marathonbot.enumBot.MarathonStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -49,6 +50,7 @@ public class MarathonEntity {
     @Column(name = "free_fail_count")
     private Integer freeFailCount = 5;
 
+    @Builder.Default
     @ManyToMany(mappedBy = "managedMarathons")
     private Set<UserEntity> managers = new HashSet<>();
 
@@ -65,6 +67,31 @@ public class MarathonEntity {
     private Boolean eveningQuestionsEnabled = false;
 
     @Builder.Default
+    @Column(name = "weekly_day_off_enabled")
+    private Boolean weeklyDayOffEnabled = false;
+
+    @Builder.Default
+    @Column(name = "gamification_enabled", nullable = false)
+    private Boolean gamificationEnabled = false;
+
+    @Column(name = "gamification_rule_version")
+    private Integer gamificationRuleVersion;
+
+    @Builder.Default
     @Column(name = "penalty_amount")
     private Integer penaltyAmount = 100;
+
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    @Column(name = "status")
+    private MarathonStatus status = MarathonStatus.ACTIVE;
+
+    @Column(name = "creator_id")
+    private Long creatorId;
+
+    @Column(name = "bind_code")
+    private String bindCode;
+
+    @Column(name = "bind_code_expiry")
+    private LocalDateTime bindCodeExpiry;
 }

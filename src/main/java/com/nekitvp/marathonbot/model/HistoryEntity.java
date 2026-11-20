@@ -39,4 +39,12 @@ public class HistoryEntity {
 
     @Column(name = "done")
     private Boolean done;
+
+    @Builder.Default
+    @Column(name = "report_submitted", nullable = false)
+    private Boolean reportSubmitted = false;
+
+    @Builder.Default
+    @Column(name = "day_off", nullable = false)
+    private Boolean dayOff = false;
 }

@@ -30,6 +30,17 @@ public class UserEntity {
     @Column(name = "telegram_first_name")
     private String telegramFirstName;
 
+    @Column(name = "display_name")
+    private String displayName;
+
+    /**
+     * Имя для отображения во всех чатах и статистиках.
+     * Если задано вручную — используется оно, иначе Telegram firstName.
+     */
+    public String getEffectiveName() {
+        return displayName != null && !displayName.isBlank() ? displayName : telegramFirstName;
+    }
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -55,6 +66,7 @@ public class UserEntity {
     @JoinColumn(name = "marathon_id", referencedColumnName = "id")
     private MarathonEntity marathon;
 
+    @Builder.Default
     @ManyToMany
     @JoinTable(
             name = "marathon_manager",
@@ -62,4 +74,7 @@ public class UserEntity {
             inverseJoinColumns = @JoinColumn(name = "marathon_id", referencedColumnName = "id")
     )
     private Set<MarathonEntity> managedMarathons = new HashSet<>();
+
+    @Column(name = "input_context", columnDefinition = "TEXT")
+    private String inputContext;
 }

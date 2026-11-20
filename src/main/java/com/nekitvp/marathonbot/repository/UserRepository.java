@@ -12,7 +12,11 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
 
     Optional<UserEntity> findByTelegramUserName(String userName);
 
+    Optional<UserEntity> findByTelegramUserNameIgnoreCase(String userName);
+
     Optional<UserEntity> findByTelegramId(Long telegramId);
+
+    Optional<UserEntity> findByTelegramIdAndMarathonId(Long telegramId, Long marathonId);
 
     boolean existsByTelegramIdAndAdminIsTrue(Long telegramId);
 

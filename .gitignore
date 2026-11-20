@@ -25,6 +25,7 @@ bin/
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
+.DS_Store
 
 ### NetBeans ###
 /nbproject/private/
@@ -41,7 +42,18 @@ out/
 .env.*
 
 # локальные конфиги
+# Живут в ./config — Spring Boot читает эту папку автоматически,
+# а Gradle не кладёт её в jar (и, значит, в публикуемый Docker-образ).
+config/
 src/main/resources/application-local.yml
+src/main/resources/application-local-o.yml
+src/main/resources/*секреты*
+src/main/resources/*Секреты*
 
 # примеры можно коммитить
 !src/main/resources/application-local.example.yml
+
+# Local credentials
+.env
+.env.*
+!.env.example

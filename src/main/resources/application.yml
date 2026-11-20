@@ -1,5 +1,6 @@
 bot:
   name: ${TELEGRAM_BOT_NAME}
+  username: ${TELEGRAM_BOT_USERNAME}
   token: ${TELEGRAM_BOT_TOKEN}
 spring:
   datasource:
@@ -27,3 +28,5 @@ yandex:
   model: yandexgpt-lite/latest
   temperature: 0.3
   max-tokens: 800
+superadmin:
+  telegram-id: ${SUPERADMIN_TELEGRAM_ID:0}

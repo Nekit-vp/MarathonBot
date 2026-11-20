@@ -1,5 +1,7 @@
 package com.nekitvp.marathonbot.sheduller;
 
+import com.nekitvp.marathonbot.gamification.service.GamificationNotificationService;
+import com.nekitvp.marathonbot.gamification.service.GamificationSchedulingService;
 import com.nekitvp.marathonbot.service.GoalService;
 import com.nekitvp.marathonbot.service.HistoryService;
 import com.nekitvp.marathonbot.service.MarathonService;
@@ -8,14 +10,21 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class ReportScheduler {
 
+    private static final ZoneId MOSCOW = ZoneId.of("Europe/Moscow");
+
     private final HistoryService historyService;
     private final MarathonService marathonService;
     private final GoalService goalService;
+    private final GamificationSchedulingService gamificationSchedulingService;
+    private final GamificationNotificationService gamificationNotificationService;
 
     /**
      * Напоминание за час до старта (23:00 накануне).
@@ -46,6 +55,19 @@ public class ReportScheduler {
         log.info("=== [REPORT SCHEDULER] 00:00 tasks completed ===");
     }
 
+    /** Reconciles yesterday only after missed-report and lifecycle writes have settled. */
+    @Scheduled(cron = "0 5 0 * * ?", zone = "Europe/Moscow")
+    public void reconcileGamification() {
+        log.info("=== [GAMIFICATION SCHEDULER] 00:05 reconciliation ===");
+        gamificationSchedulingService.reconcileAfterMidnight(LocalDateTime.now(MOSCOW));
+    }
+
+    /** Delivers claimed outbox rows; deterministic keys keep the standalone-message budget bounded. */
+    @Scheduled(cron = "0 * * * * ?", zone = "Europe/Moscow")
+    public void dispatchGamificationNotifications() {
+        gamificationNotificationService.dispatchReady(LocalDateTime.now(MOSCOW), 50);
+    }
+
     /**
      * Утренний отчёт о результатах (6:00).
      */
@@ -53,6 +75,13 @@ public class ReportScheduler {
     public void sendDailyStatistics() {
         log.info("=== [REPORT SCHEDULER] Sending daily stats ===");
         marathonService.sendStatistics();
+    }
+
+    /** Единственное игровое сообщение дня: награды за вчера, прогресс, чекпоинт и недельные итоги в одном. */
+    @Scheduled(cron = "0 5 6 * * ?", zone = "Europe/Moscow")
+    public void publishGamificationDigest() {
+        log.info("=== [GAMIFICATION SCHEDULER] 06:05 daily digest ===");
+        gamificationSchedulingService.publishDailyDigest(LocalDateTime.now(MOSCOW));
     }
 
     /**
@@ -74,7 +103,16 @@ public class ReportScheduler {
     }
 
     /**
-     * Ежевечерный опросник
+     * Дневной опросник по целям (12:00).
+     */
+    @Scheduled(cron = "0 0 12 * * ?", zone = "Europe/Moscow")
+    public void noonQuestion() {
+        log.info("=== [GOAL SCHEDULER] Noon question ===");
+        goalService.sendEveningQuestion();
+    }
+
+    /**
+     * Ежевечерный опросник (18:00).
      */
     @Scheduled(cron = "0 0 18 * * ?", zone = "Europe/Moscow")
     public void eveningQuestion() {

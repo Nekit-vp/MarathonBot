@@ -15,10 +15,28 @@ public class SendTelegramMessageEvent extends ApplicationEvent {
     @Nullable
     private final StateBot button;
 
+    @Nullable
+    private final String urlButtonLabel;
+
+    @Nullable
+    private final String urlButtonUrl;
+
     public SendTelegramMessageEvent(Object source, String text, Long chatId, @Nullable StateBot button) {
         super(source);
         this.text = text;
         this.chatId = chatId;
         this.button = button;
+        this.urlButtonLabel = null;
+        this.urlButtonUrl = null;
+    }
+
+    public SendTelegramMessageEvent(Object source, String text, Long chatId,
+                                    String urlButtonLabel, String urlButtonUrl) {
+        super(source);
+        this.text = text;
+        this.chatId = chatId;
+        this.button = null;
+        this.urlButtonLabel = urlButtonLabel;
+        this.urlButtonUrl = urlButtonUrl;
     }
 }

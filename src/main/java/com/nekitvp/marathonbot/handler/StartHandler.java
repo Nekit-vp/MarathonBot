@@ -3,14 +3,10 @@ package com.nekitvp.marathonbot.handler;
 import com.nekitvp.marathonbot.enumBot.StateBot;
 import com.nekitvp.marathonbot.service.HistoryService;
 import com.nekitvp.marathonbot.util.InlineKeyboardBuilder;
-import java.util.ArrayList;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
-
-import java.util.List;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
 import static com.nekitvp.marathonbot.util.TelegramUtil.createButtonByState;
@@ -37,6 +33,11 @@ public class StartHandler extends AbstractHandler {
                 createButtonByState(StateBot.RULES)
         ).row(
                 createButtonByState(StateBot.MARATHON)
+        ).row(
+                InlineKeyboardButton.builder()
+                        .text("Управление марафонами 📋")
+                        .callbackData(StateBot.MANAGER_MAIN.name())
+                        .build()
         );
 
         var replyKeyboard = builder.build();

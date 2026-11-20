@@ -1,0 +1,30 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-02-28-add-display-name-to-users
+      author: claude
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          columnExists:
+            tableName: users
+            schemaName: public
+            columnName: display_name
+      changes:
+        - addColumn:
+            tableName: users
+            schemaName: public
+            columns:
+              - column:
+                  name: display_name
+                  type: VARCHAR(100)
+
+  - changeSet:
+      id: 2026-02-28-backfill-display-name
+      author: claude
+      changes:
+        - sql:
+            sql: >
+              UPDATE public.users
+              SET display_name = telegram_first_name
+              WHERE display_name IS NULL
+              AND telegram_first_name IS NOT NULL;

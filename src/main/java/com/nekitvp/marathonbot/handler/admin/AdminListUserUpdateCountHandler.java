@@ -49,7 +49,7 @@ public class AdminListUserUpdateCountHandler extends AbstractHandler {
                         user.getCountChangeState(),
                         getNumberSpase(user.getCountChangeState()),
                         Objects.isNull(user.getTelegramUserName()) ? "" : "@" + user.getTelegramUserName() + " ",
-                        user.getTelegramFirstName()))
+                        user.getEffectiveName()))
                 .collect(Collectors.joining("\n"));
 
         return getDefaultMessage(message, keyboard, text);

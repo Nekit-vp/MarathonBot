@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
+import java.time.LocalDateTime;
+
 @Getter
 @Setter
 @SuperBuilder
@@ -36,5 +38,7 @@ public class GoalEntity {
     @Builder.Default
     @Column(name = "asked_count")
     private Integer askedCount = 0;
-}
 
+    @Column(name = "archived_at")
+    private LocalDateTime archivedAt;
+}
